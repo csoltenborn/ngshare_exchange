@@ -117,6 +117,27 @@ class Exchange(ABCExchange):
     def ngshare_api_delete(self, url, params=None):
         return self.ngshare_api_request('DELETE', url, params=params)
 
+    def get_counted_assignments(self, course_id):
+        response = self.ngshare_api_get(
+            '/counted_assignments/{}'.format(course_id)
+        )
+        if response is None:
+            return None
+        return response.get('counted_assignments', [])
+
+    def set_assignment_counted(self, course_id, assignment_id, counted):
+        response = self.ngshare_api_post(
+            '/counted_assignment/{}/{}'.format(course_id, assignment_id),
+            {'counted': 'true' if counted else 'false'},
+        )
+        return response is not None and bool(response.get('success'))
+
+    def get_student_results(self, course_id, student_id=None):
+        target_student = student_id if student_id else self.username
+        return self.ngshare_api_get(
+            '/results/{}/{}'.format(course_id, target_student)
+        )
+
     assignment_dir = Unicode(
         '.',
         help=dedent(
