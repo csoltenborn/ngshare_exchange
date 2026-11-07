@@ -25,7 +25,7 @@ class Exchange(ABCExchange):
     username = (
         os.environ['JUPYTERHUB_USER']
         if 'JUPYTERHUB_USER' in os.environ
-        else os.environ['USER']
+        else os.environ.get('USER', os.environ.get('USERNAME', ''))
     )
 
     _ngshare_url = Unicode(
@@ -138,6 +138,11 @@ class Exchange(ABCExchange):
             '/results/{}/{}'.format(course_id, target_student)
         )
 
+    def get_course_results(self, course_id):
+        return self.ngshare_api_get(
+            '/course_results/{}'.format(course_id)
+        )
+
     assignment_dir = Unicode(
         '.',
         help=dedent(
@@ -184,12 +189,12 @@ class Exchange(ABCExchange):
 
         for src_file in src_dir:
             src_path = src_file['path']
+            if any(part.startswith(".") for part in Path(src_path).parts):
+                self.log.info(f"Skipping hidden file/dir: {src_path}")
+                continue
             path_components = os.path.split(src_path)
             dir_name = path_components[0]
             file_name = path_components[1]
-            if file_name.startswith(".") or dir_name.startswith("."):
-                self.log.info(f"Skipping hidden file/dir: {os.path.join(dir_name, file_name)}")
-                continue
 
             dest_path = os.path.join(dest_dir, src_path)
             if noclobber and os.path.isfile(dest_path):
