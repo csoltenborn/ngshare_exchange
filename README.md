@@ -10,4 +10,6 @@ To install this and `ngshare`, see the instructions on [Read the Docs](https://n
 
 # ngshare Course Management
 
-To manage students in your course, please don't use formgrader's web interface since it doesn't use ngshare. Instead, use the `ngshare-course-management` command that gets installed with this package. Please [read the documentation](https://ngshare.readthedocs.io/en/latest/user_guide/course_management.html) for instructions on how to use this tool.
+Student rosters can now be managed directly in the **Formgrader** web interface ("Manage Students" page), which automatically synchronizes changes (adding, editing, and deleting students) with `ngshare` and the local gradebook.
+
+Alternatively, you can manage students using the `ngshare-course-management` command-line utility installed with this package or via the JupyterHub Class Management UI. Please [read the documentation](https://ngshare.readthedocs.io/en/latest/user_guide/course_management.html) for command-line instructions.

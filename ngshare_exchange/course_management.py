@@ -172,7 +172,9 @@ def add_student(args):
 
 def add_jh_student(student: User):
     # add student to nbgrader gradebook
-    command = ['nbgrader', 'db', 'student', 'add']
+    env = os.environ.copy()
+    env['NGSHARE_MANAGED_ROSTER'] = '1'
+    command = ['nbgrader', 'db', 'student', 'add', '--force']
 
     if len(student.first_name) > 0:
         command.append('--first-name')
@@ -185,7 +187,7 @@ def add_jh_student(student: User):
         command.append(student.email)
 
     command.append(student.id)
-    subprocess.run(command)
+    subprocess.run(command, env=env)
 
 
 def add_students(args):
@@ -264,10 +266,10 @@ def add_students(args):
 
 def remove_jh_student(student_id, force):
     # remove a student from nbgrader gradebook
-    command = 'nbgrader db student remove {} '.format(student_id)
-    if force:
-        command += '--force'
-    os.system(command)
+    env = os.environ.copy()
+    env['NGSHARE_MANAGED_ROSTER'] = '1'
+    command = ['nbgrader', 'db', 'student', 'remove', student_id, '--force']
+    subprocess.run(command, env=env)
 
 
 def remove_students(args):

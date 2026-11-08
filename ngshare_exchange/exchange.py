@@ -114,6 +114,9 @@ class Exchange(ABCExchange):
     def ngshare_api_post(self, url, data, params=None):
         return self.ngshare_api_request('POST', url, data=data, params=params)
 
+    def ngshare_api_put(self, url, data=None, params=None):
+        return self.ngshare_api_request('PUT', url, data=data, params=params)
+
     def ngshare_api_delete(self, url, params=None):
         return self.ngshare_api_request('DELETE', url, params=params)
 
@@ -142,6 +145,33 @@ class Exchange(ABCExchange):
         return self.ngshare_api_get(
             '/course_results/{}'.format(course_id)
         )
+
+    def get_students(self, course_id):
+        res = self.ngshare_api_get(f'/students/{course_id}')
+        if res is None:
+            return None
+        return res.get('students', [])
+
+    def add_or_update_student(
+        self, course_id, student_id, first_name=None, last_name=None, email=None
+    ):
+        data = {
+            'first_name': first_name or '',
+            'last_name': last_name or '',
+            'email': email or '',
+        }
+        res = self.ngshare_api_post(
+            f'/student/{course_id}/{student_id}', data=data
+        )
+        if res is None:
+            return {'success': False, 'message': 'Failed to update student in ngshare'}
+        return res
+
+    def remove_student(self, course_id, student_id):
+        res = self.ngshare_api_delete(f'/student/{course_id}/{student_id}')
+        if res is None:
+            return {'success': False, 'message': 'Failed to remove student from ngshare'}
+        return res
 
     assignment_dir = Unicode(
         '.',
