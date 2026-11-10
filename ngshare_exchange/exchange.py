@@ -146,6 +146,24 @@ class Exchange(ABCExchange):
             '/course_results/{}'.format(course_id)
         )
 
+    def get_bonus_scheme(self, course_id):
+        response = self.ngshare_api_get('/bonus_scheme/{}'.format(course_id))
+        if response is None:
+            return None
+        return response.get('bonus_scheme')
+
+    def set_bonus_scheme(self, course_id, scheme):
+        response = self.ngshare_api_post(
+            '/bonus_scheme/{}'.format(course_id),
+            {'scheme': json.dumps(scheme)},
+        )
+        if response is None:
+            return {
+                'success': False,
+                'message': 'Failed to save bonus scheme in ngshare (see server log).',
+            }
+        return response
+
     def get_students(self, course_id):
         res = self.ngshare_api_get(f'/students/{course_id}')
         if res is None:
