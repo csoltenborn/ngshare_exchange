@@ -50,10 +50,32 @@ class Exchange(ABCExchange):
                 'ngshare url not configured in a non-k8s environment! Please configure the URL manually in nbgrader_config.py'
             )
 
-    def _ngshare_api_check_error(self, response, url):
+    _hub_portal_url = Unicode(
+        help=dedent(
+            '''
+            Override default JupyterHub FHDW portal API URL
+            '''
+        ),
+    ).tag(config=True)
+
+    @property
+    def hub_portal_url(self):
+        if self._hub_portal_url:
+            return self._hub_portal_url.rstrip('/')
+        hub_api = os.environ.get('JUPYTERHUB_API_URL', '').strip()
+        if hub_api:
+            return hub_api.rstrip('/') + '/fhdw'
+        if 'PROXY_PUBLIC_SERVICE_HOST' in os.environ:
+            return 'http://proxy-public/hub/api/fhdw'
+        raise ValueError(
+            'JupyterHub API url not configured in a non-k8s environment! Set JUPYTERHUB_API_URL or configure _hub_portal_url.'
+        )
+
+    def _check_service_response(self, service_name, response, url):
         if response.status_code != requests.codes.ok:
             self.log.error(
-                'ngshare service returned invalid status code %d.',
+                '%s service returned invalid status code %d.',
+                service_name,
                 response.status_code,
             )
 
@@ -61,7 +83,8 @@ class Exchange(ABCExchange):
             response = response.json()
         except Exception:
             self.log.exception(
-                'ngshare service returned non-JSON content: "%s".',
+                '%s service returned non-JSON content: "%s".',
+                service_name,
                 response.text,
             )
             return None
@@ -69,19 +92,24 @@ class Exchange(ABCExchange):
         if not response['success']:
             if 'message' not in response:
                 self.log.error(
-                    'ngshare endpoint %s returned failure without an error message.',
+                    '%s endpoint %s returned failure without an error message.',
+                    service_name,
                     url,
                 )
             else:
                 self.log.error(
-                    'ngshare endpoint %s returned failure: %s',
+                    '%s endpoint %s returned failure: %s',
+                    service_name,
                     url,
                     response['message'],
                 )
             return None
         return response
 
-    def ngshare_api_request(self, method, url, data=None, params=None):
+    def _ngshare_api_check_error(self, response, url):
+        return self._check_service_response('ngshare', response, url)
+
+    def _service_api_request(self, service_name, base_url, method, url, data=None, params=None):
         encoded_url = self.encode_url(url)
         try:
             headers = None
@@ -92,18 +120,24 @@ class Exchange(ABCExchange):
                 }
             response = requests.request(
                 method,
-                self.ngshare_url + encoded_url,
+                base_url + encoded_url,
                 headers=headers,
                 data=data,
                 params=params,
             )
         except Exception:
             self.log.exception(
-                'An error occurred when querying the ngshare ' 'endpoint %s',
+                'An error occurred when querying the %s endpoint %s',
+                service_name,
                 url,
             )
             return None
-        return self._ngshare_api_check_error(response, url)
+        return self._check_service_response(service_name, response, url)
+
+    def ngshare_api_request(self, method, url, data=None, params=None):
+        return self._service_api_request(
+            'ngshare', self.ngshare_url, method, url, data=data, params=params
+        )
 
     def encode_url(self, url):
         return quote(url, safe='/', encoding=None, errors=None)
@@ -120,8 +154,19 @@ class Exchange(ABCExchange):
     def ngshare_api_delete(self, url, params=None):
         return self.ngshare_api_request('DELETE', url, params=params)
 
+    def hub_portal_request(self, method, url, data=None, params=None):
+        return self._service_api_request(
+            'hub portal', self.hub_portal_url, method, url, data=data, params=params
+        )
+
+    def hub_portal_get(self, url, params=None):
+        return self.hub_portal_request('GET', url, params=params)
+
+    def hub_portal_post(self, url, data=None, params=None):
+        return self.hub_portal_request('POST', url, data=data, params=params)
+
     def get_counted_assignments(self, course_id):
-        response = self.ngshare_api_get(
+        response = self.hub_portal_get(
             '/counted_assignments/{}'.format(course_id)
         )
         if response is None:
@@ -129,7 +174,7 @@ class Exchange(ABCExchange):
         return response.get('counted_assignments', [])
 
     def set_assignment_counted(self, course_id, assignment_id, counted):
-        response = self.ngshare_api_post(
+        response = self.hub_portal_post(
             '/counted_assignment/{}/{}'.format(course_id, assignment_id),
             {'counted': 'true' if counted else 'false'},
         )
@@ -137,30 +182,30 @@ class Exchange(ABCExchange):
 
     def get_student_results(self, course_id, student_id=None):
         target_student = student_id if student_id else self.username
-        return self.ngshare_api_get(
+        return self.hub_portal_get(
             '/results/{}/{}'.format(course_id, target_student)
         )
 
     def get_course_results(self, course_id):
-        return self.ngshare_api_get(
+        return self.hub_portal_get(
             '/course_results/{}'.format(course_id)
         )
 
     def get_bonus_scheme(self, course_id):
-        response = self.ngshare_api_get('/bonus_scheme/{}'.format(course_id))
+        response = self.hub_portal_get('/bonus_scheme/{}'.format(course_id))
         if response is None:
             return None
         return response.get('bonus_scheme')
 
     def set_bonus_scheme(self, course_id, scheme):
-        response = self.ngshare_api_post(
+        response = self.hub_portal_post(
             '/bonus_scheme/{}'.format(course_id),
             {'scheme': json.dumps(scheme)},
         )
         if response is None:
             return {
                 'success': False,
-                'message': 'Failed to save bonus scheme in ngshare (see server log).',
+                'message': 'Failed to save bonus scheme in Hub portal (see server log).',
             }
         return response
 
