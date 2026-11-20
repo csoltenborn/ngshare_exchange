@@ -124,6 +124,7 @@ class Exchange(ABCExchange):
                 headers=headers,
                 data=data,
                 params=params,
+                timeout=30,
             )
         except Exception:
             self.log.exception(
@@ -280,9 +281,13 @@ class Exchange(ABCExchange):
         if not os.path.exists(dest_dir):
             Path(dest_dir).mkdir(parents=True)
 
+        dest_root = os.path.realpath(dest_dir)
         for src_file in src_dir:
             src_path = src_file['path']
-            if any(part.startswith(".") for part in Path(src_path).parts):
+            src_parts = Path(src_path).parts
+            if os.path.isabs(src_path) or '..' in src_parts:
+                raise ExchangeError(f'Unsafe path in archive: {src_path}')
+            if any(part.startswith(".") for part in src_parts):
                 self.log.info(f"Skipping hidden file/dir: {src_path}")
                 continue
             path_components = os.path.split(src_path)
@@ -290,13 +295,14 @@ class Exchange(ABCExchange):
             file_name = path_components[1]
 
             dest_path = os.path.join(dest_dir, src_path)
+            if os.path.commonpath([dest_root, os.path.realpath(dest_path)]) != dest_root:
+                raise ExchangeError(f'Unsafe path in archive: {src_path}')
             if noclobber and os.path.isfile(dest_path):
                 continue
             # the file could be in a subdirectory, check if directory exists
-            if not os.path.exists(dir_name) and dir_name != '':
+            if dir_name != '':
                 subdir = os.path.join(dest_dir, dir_name)
-                if not os.path.exists(subdir):
-                    os.makedirs(subdir, exist_ok=True)
+                os.makedirs(subdir, exist_ok=True)
                 dest_path = os.path.join(subdir, file_name)
 
             self.log.info('Decoding: {}'.format(dest_path))

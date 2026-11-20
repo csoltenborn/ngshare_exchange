@@ -268,7 +268,9 @@ def remove_jh_student(student_id, force):
     # remove a student from nbgrader gradebook
     env = os.environ.copy()
     env['NGSHARE_MANAGED_ROSTER'] = '1'
-    command = ['nbgrader', 'db', 'student', 'remove', student_id, '--force']
+    command = ['nbgrader', 'db', 'student', 'remove', student_id]
+    if force:
+        command.append('--force')
     subprocess.run(command, env=env)
 
 
